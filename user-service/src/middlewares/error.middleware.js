@@ -1,21 +1,28 @@
 const { AppError } = require("../utils/error");
+const { config } = require("../config");
 const logger = require("../config/logger");
 
-const errorHandler = (error, req, res, next) => {
-  if (res.headersSent) {
-    return next(error);
+module.exports = (err, req, res, next) => {
+  if (err instanceof AppError) {
+    return res.status(err.statusCode).json({
+      success: false,
+      error: err.code,
+      message: err.message,
+    });
   }
 
-  const statusCode = error instanceof AppError ? error.statusCode : 500;
-  const code = error instanceof AppError ? error.code : "SERVER_ERROR";
-  const message =
-    error instanceof AppError ? error.message : "Internal Server Error";
-
-  if (statusCode >= 500) {
-    logger.error(error);
-  }
-
-  res.status(statusCode).json({ error: { code, message } });
+  logger.error({
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    body: req.body,
+    query: req.query,
+    environment: config.nodeEnv,
+  });
+  return res.status(500).json({
+    success: false,
+    error: "SERVER_ERROR",
+    message: "Internal Server Error",
+  });
 };
-
-module.exports = errorHandler;
